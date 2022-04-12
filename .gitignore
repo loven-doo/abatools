@@ -1,0 +1,13 @@
+.idea/
+venv/
+*.pyc
+*__pycache__/
+*test_results/
+dist/
+build/
+*.log
+*.log.*
+*.ipynb_checkpoints/
+*Untitled.ipynb
+*.dat
+*.fuse_hidden*
