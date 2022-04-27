@@ -64,7 +64,7 @@ def get_neighboring_proteins(uniprot_ac_list: Iterable, window=WINDOW):
 def get_protein_neighbors(uniprot_ac: str, window: int):
     embl_id = get_embl_id(uniprot_ac=uniprot_ac)
     if embl_id is None:
-        raise ValueError(No EMBL record ID found)
+        raise ValueError('No EMBL record ID found')
     print('Found EMBL ID: %s' % embl_id)
     embl_data_str = get_embl_data_str(embl_id=embl_id)
     print('Downloaded EMBL data for ID %s' % embl_id)
