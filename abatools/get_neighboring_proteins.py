@@ -63,6 +63,8 @@ def get_neighboring_proteins(uniprot_ac_list: Iterable, window=WINDOW):
 
 def get_protein_neighbors(uniprot_ac: str, window: int):
     embl_id = get_embl_id(uniprot_ac=uniprot_ac)
+    if embl_id is None:
+        raise ValueError(No EMBL record ID found)
     print('Found EMBL ID: %s' % embl_id)
     embl_data_str = get_embl_data_str(embl_id=embl_id)
     print('Downloaded EMBL data for ID %s' % embl_id)
@@ -115,6 +117,7 @@ def feature_to_record(feature: SeqFeature):
 
 
 def get_embl_id(uniprot_ac: str):
+    embl_id = None
     u = UniProt(verbose=False)
     uniprot_record = u.retrieve(uniprot_ac, frmt="txt")
     for record in SeqIO.parse(StringIO(uniprot_record), "swiss"):
@@ -175,4 +178,3 @@ def get_closest_features(window, our_feature: SeqFeature, our_contig: SeqRecord)
 
 if __name__ == "__main__":
     get_neighboring_proteins_cmd()
-
