@@ -10,7 +10,8 @@ pip install -r requirements.txt
 
 ## Modules
 
-### A proteing genome neighbors by its Uniprot AC
+### A protein genome neighbors by its Uniprot AC
 ```
 python3 abatools/get_neighboring_proteins.py -h
 ```
+See an input file example inside ```abatools/test/test_data``` directory 
