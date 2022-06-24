@@ -19,7 +19,7 @@ def get_neighboring_proteins_cmd():
 
     parser.add_argument('-i',
                         '--in_file',
-                        help='Path to an input file with list of Uniprot AC',
+                        help='Path to the input file with list of Uniprot AC: JSON (.json extension) or text file with ACs splitted with spaces, tabs or enters)',
                         required=True,)
     parser.add_argument('-o',
                         '--out_file',
