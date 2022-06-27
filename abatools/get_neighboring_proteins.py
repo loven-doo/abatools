@@ -58,6 +58,9 @@ def get_neighboring_proteins(uniprot_ac_list: Iterable, window=WINDOW):
             output_list.append(res)
         except (TypeError, ValueError):
             print(traceback.format_exc())
+        except:
+            print(traceback.format_exc())
+            break
     return output_list
 
 
