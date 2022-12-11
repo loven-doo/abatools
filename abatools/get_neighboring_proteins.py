@@ -31,14 +31,31 @@ def get_neighboring_proteins_cmd():
                         help='Search area for neighboring genes: 2*window + gene_length; default 10000',
                         required=False,
                         default=WINDOW,)
+    parser.add_argument('-tsv',
+                        '--tsv-out',
+                        help='Flag to add tsv output',
+                        required=False,
+                        action='store_true')    
 
     cmd_args = parser.parse_args()
     uniprot_ac_list = _get_input_list(path_to_input=cmd_args.in_file)
+    result = get_neighboring_proteins(uniprot_ac_list=uniprot_ac_list, window=cmd_args.window)
     with open(cmd_args.out_file, 'w') as output_file:
-        json.dump(get_neighboring_proteins(uniprot_ac_list=uniprot_ac_list,
-                                           window=cmd_args.window),
-                  output_file,
-                  indent=2)
+        json.dump(result, output_file, indent=2)
+    if cmd_args.tsv_out:
+        store_tsv(result, tsv_path=cmd_args.out_file+".tsv")
+                
+
+def store_tsv(result, tsv_path):
+    column_names = ('RE_AC', 'contig', 'start', 'end', 'strand', 
+                    'neighbor_AC', 'n_product', 'n_inference', 'n_start', 'n_end', 'n_strand')
+    with open(tsv_path, 'w') as tsv_output_file:
+        tsv_output_file.write("\t".join(column_names)+"\n")
+        for prot in result:
+            prot_info = [prot["AC"], prot["contig EMBL ID"], prot["start"], prot["end"], prot["strand"]]
+            for neigh in prot["neighbors"]:
+                neigh_info = [neigh["AC"], neigh["product"], ";".join(neigh["inference"]), neigh["start"], neigh["end"], neigh["strand"]]
+                tsv_output_file.write("\t".join(map(str, prot_info+neigh_info))+"\n")
 
 
 def _get_input_list(path_to_input):
@@ -81,7 +98,7 @@ def get_protein_neighbors(uniprot_ac: str, window: int):
                                              
     return {
         "AC": uniprot_ac,
-        "contig EMBL ID": embl_id,
+        "contig EMBL ID": our_contig.id,
         "start": protein_start,
         "end": protein_end,
         "strand": protein_strand,
@@ -104,15 +121,20 @@ def feature_to_record(feature: SeqFeature):
     end = ''
     strand = ''
     product = ''
+    inference = list()
     ac = get_uniprot_ac(feature)
     feature_start, feature_end, feature_strand = get_feature_location(feature=feature)
     product_qual = feature.qualifiers.get('product')
+    inference_qual = feature.qualifiers.get('inference')
     if product_qual:
         product = ';'.join(product_qual)
+    if inference_qual:
+        inference = [pf_cand.split(".")[0] for pf_cand in ";".join(inference_qual).split(":") if pf_cand.startswith("PF")]
         
     return {
         "AC": ac, 
-        "product": product, 
+        "product": product,
+        "inference": inference,
         "start": str(feature_start), 
         "end": str(feature_end), 
         "strand": feature_strand
@@ -146,15 +168,13 @@ def find_initial_records(uniprot_ac: str, embl_data_str: str, embl_id: str):
     our_feature = None
     our_contig = None
     for record in SeqIO.parse(StringIO(embl_data_str), "embl"):
-        if embl_id in record.id:
-            our_contig = record
-            break
-
-    if our_contig is not None:
-        for feature in our_contig.features:
+        for feature in record.features:
             if get_uniprot_ac(feature) == uniprot_ac:
                 our_feature = feature
+                our_contig = record
                 break
+        if our_feature is not None and our_contig is not None:
+            break
 
     return our_feature, our_contig
 
