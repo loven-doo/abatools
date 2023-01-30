@@ -14,7 +14,7 @@ from Bio import SeqIO, SeqFeature, SeqRecord
 WINDOW = 10000
 
 
-def get_neighboring_proteins_cmd():
+def get_neighboring_rnas_cmd():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-i',
@@ -39,7 +39,7 @@ def get_neighboring_proteins_cmd():
 
     cmd_args = parser.parse_args()
     uniprot_ac_list = _get_input_list(path_to_input=cmd_args.in_file)
-    result = get_neighboring_proteins(uniprot_ac_list=uniprot_ac_list, window=cmd_args.window)
+    result = get_neighboring_rnas(uniprot_ac_list=uniprot_ac_list, window=cmd_args.window)
     with open(cmd_args.out_file, 'w') as output_file:
         json.dump(result, output_file, indent=2)
     if cmd_args.tsv_out:
@@ -48,13 +48,13 @@ def get_neighboring_proteins_cmd():
 
 def store_tsv(result, tsv_path):
     column_names = ('RE_AC', 'contig', 'start', 'end', 'strand', 
-                    'neighbor_AC', 'n_product', 'n_inference', 'n_start', 'n_end', 'n_strand')
+                    'neighbor_locus', 'n_type', 'n_product', 'n_start', 'n_end', 'n_strand')
     with open(tsv_path, 'w') as tsv_output_file:
         tsv_output_file.write("\t".join(column_names)+"\n")
         for prot in result:
             prot_info = [prot["AC"], prot["contig EMBL ID"], prot["start"], prot["end"], prot["strand"]]
             for neigh in prot["neighbors"]:
-                neigh_info = [neigh["AC"], neigh["product"], ";".join(neigh["inference"]), neigh["start"], neigh["end"], neigh["strand"]]
+                neigh_info = [neigh["locus"], neigh["type"], neigh["product"], neigh["start"], neigh["end"], neigh["strand"]]
                 tsv_output_file.write("\t".join(map(str, prot_info+neigh_info))+"\n")
 
 
@@ -66,7 +66,7 @@ def _get_input_list(path_to_input):
             return [x.strip() for x in filter(lambda y: y.strip(), input_file.read().split())]
 
 
-def get_neighboring_proteins(uniprot_ac_list: Iterable, window=WINDOW):
+def get_neighboring_rnas(uniprot_ac_list: Iterable, window=WINDOW):
     output_list = []
     for uniprot_ac in uniprot_ac_list:
         print('Preparing AC "%s"...' % uniprot_ac)
@@ -115,29 +115,26 @@ def get_uniprot_ac(feature: SeqFeature):
                 return ac
 
 
-def prot_feature2record(feature: SeqFeature):
-    ac = ''
+def rna_feature2record(feature: SeqFeature):
+    locus = ''
     start = ''
     end = ''
     strand = ''
     product = ''
-    inference = list()
-    ac = get_uniprot_ac(feature)
+    rna_type = feature.type
+    locus = feature.qualifiers.get('locus_tag')
     feature_start, feature_end, feature_strand = get_feature_location(feature=feature)
     product_qual = feature.qualifiers.get('product')
     note_qual = feature.qualifiers.get('note')
-    inference_qual = feature.qualifiers.get('inference')
     if product_qual:
         product = ';'.join(product_qual)
     elif note_qual:
         product = ';'.join(note_qual)
-    if inference_qual:
-        inference = [pf_cand.split(".")[0] for pf_cand in ";".join(inference_qual).split(":") if pf_cand.startswith("PF")]
         
     return {
-        "AC": ac, 
+        "locus": locus,
+        "type": rna_type,
         "product": product,
-        "inference": inference,
         "start": str(feature_start), 
         "end": str(feature_end), 
         "strand": feature_strand
@@ -193,14 +190,14 @@ def get_closest_features(window, our_feature: SeqFeature, our_contig: SeqRecord)
     our_start, our_end, our_strand = get_feature_location(our_feature)
     list_of_features = []
     for feature in our_contig.features:
-        if feature.type == 'CDS':
+        if "RNA" in feature.type:
             feature_start, feature_end, feature_strand = get_feature_location(feature=feature)
             if feature_end > our_start - window:
                 if feature_start < our_end + window:
                     if not (feature_start == our_start and feature_end == our_end):
-                        list_of_features.append(prot_feature2record(feature))
+                        list_of_features.append(rna_feature2record(feature))
     return list_of_features
 
 
 if __name__ == "__main__":
-    get_neighboring_proteins_cmd()
+    get_neighboring_rnas_cmd()
