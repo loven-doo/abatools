@@ -155,9 +155,9 @@ def get_embl_id(uniprot_ac: str):
     return embl_id
 
 
-def get_embl_data_str(embl_id):
+def get_embl_data_str(embl_id, frmt='text'):
     s = ENA(verbose=False)
-    embl_data = s.get_data(embl_id, frmt='text', expanded=True)
+    embl_data = s.get_data(embl_id, frmt=frmt, expanded=True)
 
     if isinstance(embl_data, bytes):
         return zlib.decompress(embl_data, 15+32).decode('utf-8')
