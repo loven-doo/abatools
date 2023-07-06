@@ -1,6 +1,8 @@
 import os
+import re
 import zlib
 import json
+import time
 import argparse
 import traceback
 from io import StringIO
@@ -73,7 +75,7 @@ def get_neighboring_rnas(uniprot_ac_list: Iterable, window=WINDOW):
         try:
             res = get_protein_neighbors(uniprot_ac=uniprot_ac, window=window)
             output_list.append(res)
-        except (TypeError, ValueError):
+        except (ValueError, RuntimeError):
             print(traceback.format_exc())
         except:
             print(traceback.format_exc())
@@ -152,16 +154,23 @@ def get_embl_id(uniprot_ac: str):
     return embl_id
 
 
-def get_embl_data_str(embl_id, frmt='text'):
+def get_embl_data_str(embl_id, max_tries=3):
+    frmt = 'text'  # ENA.get_data doesn't work correctly with all claimed formats 
     s = ENA(verbose=False)
-    embl_data = s.get_data(embl_id, frmt=frmt, expanded=True)
+    for n_tries in range(max_tries):
+        embl_data = s.get_data(embl_id, frmt=frmt, expanded=True)
+        if embl_data == 404:  # New embl records. Waiting for bioservices update
+            recid = embl_id[:re.match("[A-Z]+\d{2}", embl_id).end()]
+            url = f"https://ftp.ebi.ac.uk/pub/databases/ena/wgs/public/{embl_id[:3].lower()}/{recid}.dat.gz"
+            embl_data = s.services.http_get(url, frmt="txt")
 
-    if isinstance(embl_data, bytes):
-        return zlib.decompress(embl_data, 15+32).decode('utf-8')
-    elif isinstance(embl_data, str):
-        return embl_data
-    else:
-        raise TypeError('Wrong type of EMBL data: "%s"' % type(embl_data))
+        if isinstance(embl_data, bytes):
+            return zlib.decompress(embl_data, 15+32).decode('utf-8')
+        elif isinstance(embl_data, str):
+            return embl_data            
+        else:
+            time.sleep(1)
+    raise RuntimeError('%s: EMBL data not found' % embl_id)
 
 
 def find_initial_records(uniprot_ac: str, embl_data_str: str, embl_id: str):
